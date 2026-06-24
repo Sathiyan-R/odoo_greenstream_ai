@@ -60,13 +60,16 @@ const cityCoords: Record<string, { lat: number; lon: number }> = {
   "Bangalore": { lat: 12.9716, lon: 77.5946 },
 };
 
-// Weather code to description mapping
+// Weather code to description mapping (WMO standard)
 const weatherCodeMap: Record<number, string> = {
-  0: "Clear", 1: "Cloudy", 2: "Cloudy", 3: "Overcast",
-  45: "Foggy", 48: "Foggy", 51: "Drizzle", 53: "Drizzle",
-  55: "Drizzle", 61: "Rain", 63: "Rain", 65: "Rain",
-  71: "Snow", 73: "Snow", 75: "Snow", 80: "Rain",
-  81: "Rain", 82: "Rain", 85: "Snow", 86: "Snow",
+  0: "Clear", 1: "Partly Cloudy", 2: "Cloudy", 3: "Overcast",
+  45: "Foggy", 48: "Foggy", 
+  51: "Drizzle", 53: "Drizzle", 55: "Drizzle", 56: "Freezing Drizzle", 57: "Freezing Drizzle",
+  61: "Rain", 63: "Rain", 65: "Rain", 66: "Freezing Rain", 67: "Freezing Rain",
+  71: "Snow", 73: "Snow", 75: "Snow", 77: "Snow Grains",
+  80: "Rain", 81: "Rain", 82: "Heavy Rain", 
+  85: "Snow", 86: "Snow",
+  95: "Thunderstorm", 96: "Thunderstorm", 99: "Thunderstorm"
 };
 
 export async function fetchWeather(city = "Chennai"): Promise<WeatherData> {
