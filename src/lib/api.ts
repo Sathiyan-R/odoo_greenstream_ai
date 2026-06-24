@@ -52,12 +52,47 @@ export interface PredictionData {
 
 const EMISSION_FACTOR = 0.82; // kgCO2 per kWh
 
+// City coordinates for Open-Meteo API
+const cityCoords: Record<string, { lat: number; lon: number }> = {
+  "Chennai": { lat: 13.0827, lon: 80.2707 },
+  "Delhi": { lat: 28.7041, lon: 77.1025 },
+  "Mumbai": { lat: 19.0760, lon: 72.8777 },
+  "Bangalore": { lat: 12.9716, lon: 77.5946 },
+};
+
+// Weather code to description mapping
+const weatherCodeMap: Record<number, string> = {
+  0: "Clear", 1: "Cloudy", 2: "Cloudy", 3: "Overcast",
+  45: "Foggy", 48: "Foggy", 51: "Drizzle", 53: "Drizzle",
+  55: "Drizzle", 61: "Rain", 63: "Rain", 65: "Rain",
+  71: "Snow", 73: "Snow", 75: "Snow", 80: "Rain",
+  81: "Rain", 82: "Rain", 85: "Snow", 86: "Snow",
+};
+
 export async function fetchWeather(city = "Chennai"): Promise<WeatherData> {
-  const { data, error } = await supabase.functions.invoke("weather", {
-    body: { city },
-  });
-  if (error) throw error;
-  return data as WeatherData;
+  try {
+    const coords = cityCoords[city] || cityCoords["Chennai"];
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,cloud_cover,weather_code,wind_speed_10m`
+    );
+    const data = await res.json();
+    
+    if (!res.ok || !data.current) throw new Error("Weather API error");
+    
+    const current = data.current;
+    return {
+      city,
+      temperature: current.temperature_2m,
+      humidity: current.relative_humidity_2m,
+      condition: weatherCodeMap[current.weather_code] || "Unknown",
+      description: weatherCodeMap[current.weather_code]?.toLowerCase() || "unknown",
+      wind_speed: current.wind_speed_10m,
+      clouds: current.cloud_cover,
+    };
+  } catch (e) {
+    console.error("Weather fetch failed:", e);
+    throw e;
+  }
 }
 
 export async function fetchAirQuality(
@@ -65,19 +100,86 @@ export async function fetchAirQuality(
   state = "Tamil Nadu",
   country = "India"
 ): Promise<AirQualityData> {
-  const { data, error } = await supabase.functions.invoke("air-quality", {
-    body: { city, state, country },
-  });
-  if (error) throw error;
-  return data as AirQualityData;
+  try {
+    const coords = cityCoords[city] || cityCoords["Chennai"];
+    const res = await fetch(
+      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${coords.lat}&longitude=${coords.lon}&current=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone`
+    );
+    const data = await res.json();
+    
+    if (!res.ok || !data.current) throw new Error("Air Quality API error");
+    
+    const current = data.current;
+    const pollutants = {
+      "PM10": current.pm10,
+      "PM2.5": current.pm2_5,
+      "CO": current.carbon_monoxide,
+      "NO2": current.nitrogen_dioxide,
+      "O3": current.ozone,
+    };
+    
+    let mainPollutant = "PM2.5";
+    let maxValue = 0;
+    for (const [pollutant, value] of Object.entries(pollutants)) {
+      if (value > maxValue) {
+        maxValue = value;
+        mainPollutant = pollutant;
+      }
+    }
+    
+    const pm25 = current.pm2_5;
+    let aqi = 0;
+    if (pm25 <= 12) aqi = pm25 * 50 / 12;
+    else if (pm25 <= 35.4) aqi = 50 + (pm25 - 12) * 50 / 23.4;
+    else if (pm25 <= 55.4) aqi = 100 + (pm25 - 35.4) * 50 / 20;
+    else if (pm25 <= 150.4) aqi = 150 + (pm25 - 55.4) * 50 / 95;
+    else aqi = 200 + (pm25 - 150.4) * 50 / 100;
+    
+    return {
+      city,
+      aqi: Math.round(aqi),
+      main_pollutant: mainPollutant,
+      temperature: null as any,
+      humidity: null as any,
+      wind_speed: null as any,
+    };
+  } catch (e) {
+    console.error("Air quality fetch failed:", e);
+    throw e;
+  }
 }
 
 export async function fetchForecast(city = "Chennai"): Promise<ForecastData> {
-  const { data, error } = await supabase.functions.invoke("weather-forecast", {
-    body: { city },
-  });
-  if (error) throw error;
-  return data as ForecastData;
+  try {
+    const coords = cityCoords[city] || cityCoords["Chennai"];
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&daily=temperature_2m_max,temperature_2m_min,relative_humidity_2m_max,weather_code,wind_speed_10m_max&timezone=auto`
+    );
+    const data = await res.json();
+    
+    if (!res.ok || !data.daily) throw new Error("Forecast API error");
+    
+    const daily = data.daily;
+    if (daily.time.length > 1) {
+      const idx = 1;
+      const avgTemp = (daily.temperature_2m_max[idx] + daily.temperature_2m_min[idx]) / 2;
+      
+      return {
+        city,
+        avgTemp: Math.round(avgTemp * 10) / 10,
+        maxTemp: daily.temperature_2m_max[idx],
+        humidity: daily.relative_humidity_2m_max[idx],
+        windSpeed: daily.wind_speed_10m_max[idx],
+        clouds: 0,
+        condition: weatherCodeMap[daily.weather_code[idx]] || "Unknown",
+        simulated: false,
+      };
+    }
+    throw new Error("Insufficient forecast data");
+  } catch (e) {
+    console.error("Forecast fetch failed:", e);
+    throw e;
+  }
 }
 
 export function generateEnergyReading(): EnergyReading[] {
