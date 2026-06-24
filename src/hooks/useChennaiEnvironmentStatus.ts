@@ -1,8 +1,31 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ZoneData } from "@/types/map";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { useDashboardData } from "./useDashboardData";
+
+type ChennaiEnvironmentStatusRow = {
+  id: string;
+  zone_name: string;
+  zone_region: string;
+  latitude: number;
+  longitude: number;
+  temperature: number;
+  humidity: number | null;
+  aqi: number;
+  energy_consumption: number;
+  energy_variance: number | null;
+  carbon_emission: number;
+  sustainability_score: number;
+  wind_speed: number | null;
+  zone_area: number | null;
+  trend_temperature: string | null;
+  trend_aqi: string | null;
+  trend_energy: string | null;
+  prediction_tomorrow: string | null;
+  ai_suggestion: string | null;
+  last_updated: string | null;
+};
 
 // Fallback zone definitions with coordinates
 const fallbackZones = [
@@ -56,71 +79,8 @@ export function useChennaiEnvironmentStatus() {
   // Fallback to live API data
   const { state: dashboardState } = useDashboardData();
 
-  // Fetch initial data
-  const fetchZones = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("chennai_environment_status" as any)
-        .select("*")
-        .order("zone_name");
-
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        // Transform data to match ZoneData interface
-        const transformedData: ZoneData[] = data.map((zone: any) => ({
-          id: zone.id,
-          zone_name: zone.zone_name,
-          zone_region: zone.zone_region,
-          latitude: zone.latitude,
-          longitude: zone.longitude,
-          temperature: zone.temperature,
-          humidity: zone.humidity || 65,
-          aqi: zone.aqi,
-          energy_consumption: zone.energy_consumption,
-          energy_variance: zone.energy_variance || zone.energy_consumption * 0.15,
-          carbon_emission: zone.carbon_emission,
-          sustainability_score: zone.sustainability_score,
-          wind_speed: zone.wind_speed || 8,
-          zone_area: zone.zone_area || 50,
-          trend_temperature: zone.trend_temperature,
-          trend_aqi: zone.trend_aqi,
-          trend_energy: zone.trend_energy,
-          prediction_tomorrow: zone.prediction_tomorrow,
-          ai_suggestion: zone.ai_suggestion,
-          last_updated: zone.last_updated,
-          // Legacy compatibility
-          name: zone.zone_name,
-          lat: zone.latitude,
-          lng: zone.longitude,
-          energy: zone.energy_consumption,
-          carbon: zone.carbon_emission,
-          area: zone.zone_region,
-        }));
-
-        setZones(transformedData);
-        setLastUpdated(new Date());
-        setLoading(false);
-        setUseSupabase(true);
-        setError(null);
-      } else {
-        // No data in Supabase, use fallback
-        console.log("No data in Supabase, using fallback with live API data");
-        setUseSupabase(false);
-        setError(null);
-        updateZonesFromAPI();
-      }
-    } catch (error) {
-      console.error("Error fetching from Supabase:", error);
-      setError(error as Error);
-      // Fallback to API data
-      setUseSupabase(false);
-      updateZonesFromAPI();
-    }
-  };
-
   // Update zones using live API data
-  const updateZonesFromAPI = () => {
+  const updateZonesFromAPI = useCallback(() => {
     const totalEnergy = dashboardState.energyReadings.reduce(
       (sum, r) => sum + r.energyUsage,
       0
@@ -215,7 +175,70 @@ export function useChennaiEnvironmentStatus() {
     setLoading(false);
     setIsLive(true);
     setTimeout(() => setIsLive(false), 2000);
-  };
+  }, [dashboardState]);
+
+  // Fetch initial data
+  const fetchZones = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("chennai_environment_status")
+        .select("*")
+        .order("zone_name");
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        // Transform data to match ZoneData interface
+        const transformedData: ZoneData[] = (data as ChennaiEnvironmentStatusRow[]).map((zone) => ({
+          id: zone.id,
+          zone_name: zone.zone_name,
+          zone_region: zone.zone_region,
+          latitude: zone.latitude,
+          longitude: zone.longitude,
+          temperature: zone.temperature,
+          humidity: zone.humidity ?? 65,
+          aqi: zone.aqi,
+          energy_consumption: zone.energy_consumption,
+          energy_variance: zone.energy_variance ?? zone.energy_consumption * 0.15,
+          carbon_emission: zone.carbon_emission,
+          sustainability_score: zone.sustainability_score,
+          wind_speed: zone.wind_speed ?? 8,
+          zone_area: zone.zone_area ?? 50,
+          trend_temperature: zone.trend_temperature ?? "→",
+          trend_aqi: zone.trend_aqi ?? "→",
+          trend_energy: zone.trend_energy ?? "→",
+          prediction_tomorrow: zone.prediction_tomorrow ?? "Stable conditions expected with minor variations.",
+          ai_suggestion: zone.ai_suggestion ?? "Continue monitoring current sustainable practices.",
+          last_updated: zone.last_updated ?? new Date().toISOString(),
+          // Legacy compatibility
+          name: zone.zone_name,
+          lat: zone.latitude,
+          lng: zone.longitude,
+          energy: zone.energy_consumption,
+          carbon: zone.carbon_emission,
+          area: zone.zone_region,
+        }));
+
+        setZones(transformedData);
+        setLastUpdated(new Date());
+        setLoading(false);
+        setUseSupabase(true);
+        setError(null);
+      } else {
+        // No data in Supabase, use fallback
+        console.log("No data in Supabase, using fallback with live API data");
+        setUseSupabase(false);
+        setError(null);
+        updateZonesFromAPI();
+      }
+    } catch (error) {
+      console.error("Error fetching from Supabase:", error);
+      setError(error as Error);
+      // Fallback to API data
+      setUseSupabase(false);
+      updateZonesFromAPI();
+    }
+  }, [updateZonesFromAPI]);
 
   // Setup real-time subscription
   useEffect(() => {
@@ -259,20 +282,17 @@ export function useChennaiEnvironmentStatus() {
         clearInterval(pollIntervalRef.current);
       }
     };
-  }, []);
-
-  // Update from API on initial load only (fallback mode)
-  useEffect(() => {
-    if (!useSupabase && dashboardState.energyReadings.length > 0 && zones.length === 0) {
-      updateZonesFromAPI();
-    }
-  }, [useSupabase, dashboardState.energyReadings.length]);
+  }, [fetchZones, useSupabase]);
 
   // Polling interval (works for both modes)
   useEffect(() => {
     pollIntervalRef.current = setInterval(() => {
       if (useSupabase) {
-        fetchZones();
+        supabase.functions.invoke("chennai-status-updater").catch((error) => {
+          console.error("Failed to refresh Chennai status:", error);
+        }).finally(() => {
+          fetchZones();
+        });
       } else {
         updateZonesFromAPI();
       }
@@ -283,7 +303,7 @@ export function useChennaiEnvironmentStatus() {
         clearInterval(pollIntervalRef.current);
       }
     };
-  }, [useSupabase]);
+  }, [useSupabase, fetchZones, updateZonesFromAPI]);
 
   const refresh = () => {
     setError(null);

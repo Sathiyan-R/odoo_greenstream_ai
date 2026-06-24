@@ -9,5 +9,8 @@ verify_jwt = false
 [functions.ai-chat]
 verify_jwt = false
 
+[functions.chennai-status-updater]
+verify_jwt = false
+
 [functions.weather-forecast]
 verify_jwt = false
