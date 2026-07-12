@@ -8,9 +8,14 @@ import {
 import {
   AlertTriangle, RefreshCw, Cloud, Wind, Droplets, Thermometer,
   Leaf, Zap, Sun, Activity, CheckCircle2, XCircle, TrendingUp,
-  Brain, ShieldAlert, Calendar, MapPin,
+  Brain, ShieldAlert, Calendar, MapPin, Sparkles,
 } from "lucide-react";
 import DashboardAIChat from "@/components/dashboard/DashboardAIChat";
+import { SustainabilityScoreCard } from "@/components/dashboard/SustainabilityScoreCard";
+import { PredictionChart } from "@/components/dashboard/PredictionChart";
+import { AnomalyAlerts } from "@/components/dashboard/AnomalyAlerts";
+import { AIInsightGenerator } from "@/components/dashboard/AIInsightGenerator";
+import { useEnhancedDashboardData } from "@/hooks/useEnhancedDashboardData";
 import { Link } from "react-router-dom";
 
 const MetricCard = ({ label, value, unit, icon: Icon, color = "primary" }: {
@@ -60,6 +65,8 @@ const LiveDashboard = () => {
     ? "text-destructive" : state.prediction?.riskLevel === "Medium"
     ? "text-yellow-400" : "text-primary";
 
+  const { anomalies, scoreFactors, energyHistory, energyStats } = useEnhancedDashboardData({ dashboardState: state });
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
@@ -85,6 +92,14 @@ const LiveDashboard = () => {
             <span className="hidden sm:inline">Environmental Map</span>
             <span className="sm:hidden">Map</span>
           </Link>
+          <Link 
+            to="/dashboard/esg" 
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-xs font-medium hover:shadow-lg transition-all duration-300"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">ESG Command Center</span>
+            <span className="sm:hidden">ESG</span>
+          </Link>
           <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-primary/10">
             <div className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" />
             <span className="text-xs font-heading text-primary font-semibold">LIVE</span>
@@ -105,20 +120,13 @@ const LiveDashboard = () => {
       ) : (
         <div className="p-4 md:p-6 max-w-[1600px] mx-auto space-y-4">
           {/* Anomaly Alerts */}
-          {state.anomalies.length > 0 && (
+          {anomalies.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex flex-wrap gap-2"
+              className="flex flex-col gap-3"
             >
-              {state.anomalies.map((a, i) => (
-                <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20">
-                  <AlertTriangle className="w-4 h-4 text-destructive" />
-                  <span className="text-sm text-destructive font-medium">
-                    ⚠ {a.buildingId}: {a.message}
-                  </span>
-                </div>
-              ))}
+              <AnomalyAlerts anomalies={anomalies} />
             </motion.div>
           )}
 
@@ -130,6 +138,17 @@ const LiveDashboard = () => {
             <MetricCard label="AQI" value={aqi || "--"} unit={aqiInfo.label} icon={Wind} />
             <MetricCard label="Sustainability" value={state.sustainabilityScore} unit="/ 100" icon={Leaf} color="primary" />
             <MetricCard label="Weather" value={state.weather?.condition ?? "--"} unit={state.weather?.description ?? ""} icon={Cloud} />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+            <SustainabilityScoreCard factors={scoreFactors} previousScore={state.sustainabilityScore - 5} />
+            <PredictionChart
+              energyHistory={energyHistory.map((point) => point.value)}
+              aqi={aqi}
+              temperature={state.weather?.temperature ?? 0}
+              windSpeed={state.weather?.wind_speed ?? 0}
+              carbonIntensity={0.82}
+            />
           </div>
 
           {/* Tomorrow Prediction Card */}
@@ -218,6 +237,31 @@ const LiveDashboard = () => {
 
             {/* AI Chat */}
             <DashboardAIChat dashboardState={state} />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+            <AIInsightGenerator dashboardState={state} />
+            <div className="glass-panel p-4 border border-border">
+              <h3 className="text-lg font-heading font-bold mb-3">Energy Statistics</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground">Current Usage</p>
+                  <p className="text-xl font-semibold">{Math.round(energyStats.current)} kWh</p>
+                </div>
+                <div className="rounded-xl bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground">Average Usage</p>
+                  <p className="text-xl font-semibold">{Math.round(energyStats.average)} kWh</p>
+                </div>
+                <div className="rounded-xl bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground">Peak Usage</p>
+                  <p className="text-xl font-semibold">{Math.round(energyStats.peak)} kWh</p>
+                </div>
+                <div className="rounded-xl bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground">Min Usage</p>
+                  <p className="text-xl font-semibold">{Math.round(energyStats.min)} kWh</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Bottom Row */}

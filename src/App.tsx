@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import DashboardMap from "./pages/DashboardMap";
+import ESGDashboard from "./pages/ESGDashboard";
 import ExploreArchitecture from "./pages/ExploreArchitecture";
 import NotFound from "./pages/NotFound";
 
@@ -20,6 +21,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/esg" element={<ESGDashboard />} />
           <Route path="/dashboard/map" element={<DashboardMap />} />
           <Route path="/explore-architecture" element={<ExploreArchitecture />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
