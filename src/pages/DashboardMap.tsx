@@ -1345,7 +1345,7 @@ const DashboardMap = () => {
       <footer className="mt-auto py-4 border-t border-gray-800">
         <div className="container mx-auto px-4">
           <p className="text-center text-xs text-gray-500">
-            GreenStream AI - Real-time Chennai Environmental Monitoring | Powered by Supabase
+            GreenStream AI - Real-time Chennai Environmental Monitoring | Powered by MySQL
           </p>
         </div>
       </footer>

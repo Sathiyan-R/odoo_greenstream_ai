@@ -1,18 +1,7 @@
 import { useState, useCallback } from "react";
 import type { DashboardState } from "@/lib/api";
-import { supabase } from "@/integrations/supabase/client";
 
 type Message = { role: "user" | "assistant"; content: string };
-
-const supabaseConfig = supabase as typeof supabase & {
-  supabaseUrl?: string;
-  supabaseKey?: string;
-};
-
-const CHAT_URL = import.meta.env.DEV 
-  ? "http://127.0.0.1:54321/functions/v1/ai-chat" 
-  : `${supabaseConfig.supabaseUrl ?? import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
-const CHAT_API_KEY = supabaseConfig.supabaseKey ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 function generateLocalAIResponse(input: string, state: DashboardState): string {
   const lowerInput = input.toLowerCase();

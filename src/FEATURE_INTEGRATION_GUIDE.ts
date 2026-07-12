@@ -59,14 +59,14 @@ export const PERFORMANCE_TIPS = [
 // ============================================================================
 
 export const API_INTEGRATION_GUIDE = `
-For real AI-powered insights, extend your Supabase backend:
+For real AI-powered insights, extend your MySQL backend:
 
-1. Create supabase/functions/ai-insights/index.ts
+1. Add a new API route to the MySQL server in mysql-server/server.js
 2. Send dashboardData to Claude/GPT-4 API
 3. Parse structured responses as AIInsight objects
 4. Replace generateInsights() call in AIInsightGenerator.tsx
 
-Example: Call your edge function instead of using mock data
+Example: Call your API route instead of using mock data
 `;
 
 // ============================================================================

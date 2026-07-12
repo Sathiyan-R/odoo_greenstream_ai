@@ -1,31 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { ZoneData } from "@/types/map";
-import { RealtimeChannel } from "@supabase/supabase-js";
 import { useDashboardData } from "./useDashboardData";
-
-type ChennaiEnvironmentStatusRow = {
-  id: string;
-  zone_name: string;
-  zone_region: string;
-  latitude: number;
-  longitude: number;
-  temperature: number;
-  humidity: number | null;
-  aqi: number;
-  energy_consumption: number;
-  energy_variance: number | null;
-  carbon_emission: number;
-  sustainability_score: number;
-  wind_speed: number | null;
-  zone_area: number | null;
-  trend_temperature: string | null;
-  trend_aqi: string | null;
-  trend_energy: string | null;
-  prediction_tomorrow: string | null;
-  ai_suggestion: string | null;
-  last_updated: string | null;
-};
+import { fetchZonesFromMySQL } from "@/lib/mysqlApi";
 
 // Fallback zone definitions with coordinates
 const fallbackZones = [
@@ -71,9 +47,7 @@ export function useChennaiEnvironmentStatus() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isLive, setIsLive] = useState(false);
-  const [useSupabase, setUseSupabase] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Fallback to live API data
@@ -180,138 +154,50 @@ export function useChennaiEnvironmentStatus() {
   // Fetch initial data
   const fetchZones = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("chennai_environment_status")
-        .select("*")
-        .order("zone_name");
-
-      if (error) throw error;
-
+      const data = await fetchZonesFromMySQL();
       if (data && data.length > 0) {
-        // Transform data to match ZoneData interface
-        const transformedData: ZoneData[] = (data as ChennaiEnvironmentStatusRow[]).map((zone) => ({
-          id: zone.id,
-          zone_name: zone.zone_name,
-          zone_region: zone.zone_region,
-          latitude: zone.latitude,
-          longitude: zone.longitude,
-          temperature: zone.temperature,
-          humidity: zone.humidity ?? 65,
-          aqi: zone.aqi,
-          energy_consumption: zone.energy_consumption,
-          energy_variance: zone.energy_variance ?? zone.energy_consumption * 0.15,
-          carbon_emission: zone.carbon_emission,
-          sustainability_score: zone.sustainability_score,
-          wind_speed: zone.wind_speed ?? 8,
-          zone_area: zone.zone_area ?? 50,
-          trend_temperature: zone.trend_temperature ?? "→",
-          trend_aqi: zone.trend_aqi ?? "→",
-          trend_energy: zone.trend_energy ?? "→",
-          prediction_tomorrow: zone.prediction_tomorrow ?? "Stable conditions expected with minor variations.",
-          ai_suggestion: zone.ai_suggestion ?? "Continue monitoring current sustainable practices.",
-          last_updated: zone.last_updated ?? new Date().toISOString(),
-          // Legacy compatibility
-          name: zone.zone_name,
-          lat: zone.latitude,
-          lng: zone.longitude,
-          energy: zone.energy_consumption,
-          carbon: zone.carbon_emission,
-          area: zone.zone_region,
-        }));
-
-        setZones(transformedData);
+        setZones(data);
         setLastUpdated(new Date());
         setLoading(false);
-        setUseSupabase(true);
         setError(null);
       } else {
-        // No data in Supabase, use fallback
-        console.log("No data in Supabase, using fallback with live API data");
-        setUseSupabase(false);
+        console.log("No data in MySQL, using fallback with live API data");
         setError(null);
         updateZonesFromAPI();
       }
     } catch (error) {
-      console.error("Error fetching from Supabase:", error);
+      console.error("Error fetching from MySQL:", error);
       setError(error as Error);
-      // Fallback to API data
-      setUseSupabase(false);
       updateZonesFromAPI();
     }
   }, [updateZonesFromAPI]);
 
-  // Setup real-time subscription
   useEffect(() => {
     fetchZones();
 
-    // Subscribe to real-time changes (only if using Supabase)
-    if (useSupabase) {
-      const channel = supabase
-        .channel("chennai-status")
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "chennai_environment_status",
-          },
-          (payload) => {
-            console.log("Real-time update received:", payload);
-            setIsLive(true);
-            
-            // Refetch all zones on any change
-            fetchZones();
-            
-            // Reset live indicator after 2 seconds
-            setTimeout(() => setIsLive(false), 2000);
-          }
-        )
-        .subscribe((status) => {
-          console.log("Real-time subscription status:", status);
-        });
-
-      channelRef.current = channel;
-    }
-
-    // Cleanup
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
       }
     };
-  }, [fetchZones, useSupabase]);
+  }, [fetchZones]);
 
-  // Polling interval (works for both modes)
+  // Polling interval
   useEffect(() => {
     pollIntervalRef.current = setInterval(() => {
-      if (useSupabase) {
-        supabase.functions.invoke("chennai-status-updater").catch((error) => {
-          console.error("Failed to refresh Chennai status:", error);
-        }).finally(() => {
-          fetchZones();
-        });
-      } else {
-        updateZonesFromAPI();
-      }
-    }, 60000); // Auto-refresh every 1 minute
+      fetchZones();
+    }, 60000);
 
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
       }
     };
-  }, [useSupabase, fetchZones, updateZonesFromAPI]);
+  }, [fetchZones]);
 
   const refresh = () => {
     setError(null);
-    if (useSupabase) {
-      fetchZones();
-    } else {
-      updateZonesFromAPI();
-    }
+    fetchZones();
   };
 
   return { zones, loading, lastUpdated, isLive, error, refresh };

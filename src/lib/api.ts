@@ -1,5 +1,3 @@
-import { supabase } from "@/integrations/supabase/client";
-
 export interface WeatherData {
   city: string;
   temperature: number;

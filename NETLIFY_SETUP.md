@@ -14,9 +14,12 @@ After deploying to Netlify, you **MUST** configure the following environment var
 Add the following environment variables:
 
 ```
-VITE_SUPABASE_PROJECT_ID=kzxusjxvgrtchjrzwrzd
-VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6eHVzanh2Z3J0Y2hqcnp3cnpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4NzQwOTcsImV4cCI6MjA4NjQ1MDA5N30.8erhXhrQ0DPpjmVBJV72F1dd9tDrdNXzCyLnzevXqMU
-VITE_SUPABASE_URL=https://kzxusjxvgrtchjrzwrzd.supabase.co
+VITE_API_BASE_URL=http://localhost:4000/api
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=india1947
+MYSQL_DATABASE=greenstream
 ```
 
 ### Step 3: Redeploy

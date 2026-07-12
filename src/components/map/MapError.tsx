@@ -22,7 +22,7 @@ export const MapError = ({ error, onRetry }: MapErrorProps) => {
       };
     }
     
-    if (errorMessage.toLowerCase().includes("supabase") ||
+    if (errorMessage.toLowerCase().includes("mysql") ||
         errorMessage.toLowerCase().includes("database")) {
       return {
         icon: AlertCircle,
